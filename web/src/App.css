@@ -1,0 +1,1150 @@
+.app-shell {
+  min-height: 100vh;
+  background: var(--paper-bg);
+  display: flex;
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 20px 8px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  /* Solid background so the slide-in sidebar on mobile fully occludes the
+     editor text behind it. */
+  background: #f5f4f1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    background: #222220;
+    border-right-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.sidebar-header {
+  padding: 0 8px 10px;
+  margin-bottom: 4px;
+}
+
+.sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.sort-wrapper {
+  position: relative;
+}
+
+.sort-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #777;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+.sort-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #222;
+}
+
+.sort-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 60;
+  min-width: 180px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 2px rgba(20, 18, 12, 0.06),
+    0 8px 24px rgba(20, 18, 12, 0.14);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.sort-menu-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #333;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.sort-menu-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.sort-menu-item.active {
+  background: rgba(0, 0, 0, 0.07);
+  font-weight: 500;
+}
+
+.sidebar-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.header-btn {
+  flex: 1 1 calc(50% - 4px);
+  background: transparent;
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.header-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.tree-item {
+  position: relative;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.tree-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.tree-dir-label,
+.tree-file {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 5px 6px;
+  font: inherit;
+  font-size: 13px;
+  color: #444;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.tree-dir-label .caret {
+  width: 10px;
+  font-size: 9px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.tree-dir-label .name {
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-file {
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.tree-file:hover {
+  color: #111;
+}
+.tree-file.active {
+  background: rgba(0, 0, 0, 0.07);
+  color: #111;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.row-more {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #999;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+  margin-right: 4px;
+}
+.tree-row:hover .row-more,
+.tree-row:has(.row-menu) .row-more {
+  opacity: 1;
+}
+.row-more:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #222;
+}
+
+.row-menu {
+  position: absolute;
+  top: 100%;
+  right: 4px;
+  z-index: 50;
+  min-width: 180px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 2px rgba(20, 18, 12, 0.06),
+    0 8px 24px rgba(20, 18, 12, 0.14);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.row-menu button {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #333;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.row-menu button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.row-menu button.danger {
+  color: #a33;
+}
+.row-menu button.danger:hover {
+  background: rgba(170, 51, 51, 0.08);
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  min-width: 0;
+}
+
+.editor-column {
+  width: 100%;
+  max-width: 760px;
+  padding: 80px 32px 40vh;
+}
+
+.empty-state {
+  padding: 80px 32px;
+  color: #888;
+  font-size: 14px;
+}
+
+/* Note metadata row above the editor */
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+  color: #999;
+  padding: 0 4px 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.note-meta-path {
+  font-family: inherit;
+  color: #666;
+}
+.note-meta-date {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tag panel in sidebar */
+.tag-panel {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.tag-panel-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #888;
+  cursor: pointer;
+  text-align: left;
+}
+.tag-panel-header .caret {
+  font-size: 9px;
+  color: #aaa;
+}
+.tag-panel-count {
+  margin-left: auto;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #aaa;
+  font-size: 10px;
+}
+.tag-panel-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.tag-panel-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: #444;
+  text-align: left;
+}
+.tag-panel-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+.tag-panel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-panel-num {
+  font-size: 10px;
+  color: #999;
+}
+
+/* Sidebar footer with trash button */
+.sidebar-footer {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.sidebar-footer-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 5px;
+}
+.sidebar-footer-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #111;
+}
+
+/* Trash modal */
+.trash-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 12, 0.25);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+.trash-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: 75vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(20, 18, 12, 0.08),
+    0 20px 60px rgba(20, 18, 12, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.trash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.trash-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0.02em;
+}
+.trash-header-actions {
+  display: flex;
+  gap: 6px;
+}
+.trash-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.trash-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.trash-btn--danger {
+  border-color: rgba(170, 51, 51, 0.4);
+  color: #a33;
+}
+.trash-btn--danger:hover {
+  background: rgba(170, 51, 51, 0.06);
+}
+.trash-empty {
+  padding: 40px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+.trash-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.trash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.trash-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+.trash-item-info {
+  min-width: 0;
+  flex: 1;
+}
+.trash-item-name {
+  font-size: 13px;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trash-item-when {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* Palette section label */
+.palette-section-label {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.save-indicator {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: #888;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  transition: opacity 0.3s;
+  z-index: 100;
+}
+.save-indicator[data-state="saved"] {
+  opacity: 0.5;
+}
+.save-indicator[data-state="saving"],
+.save-indicator[data-state="loading"] {
+  color: #555;
+}
+.save-indicator[data-state="error"] {
+  color: #a33;
+  background: rgba(170, 51, 51, 0.08);
+}
+
+.bn-container {
+  --bn-font-family: "IBM Plex Mono", ui-monospace, "Menlo", monospace;
+}
+
+/* === Hamburger + mobile sidebar overlay ===
+   Hidden on desktop; below 1024px the sidebar becomes a slide-in overlay
+   and the hamburger button is the only way to reveal it. */
+
+.hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 110;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #333;
+  transition: background 0.12s;
+}
+.hamburger-btn:hover {
+  background: #fff;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .hamburger-btn {
+    display: flex;
+  }
+
+  /* Make space for the hamburger and avoid clashing with the save indicator */
+  .save-indicator {
+    top: 16px;
+    right: 16px;
+    font-size: 11px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(300px, 85vw);
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(20, 18, 12, 0.1);
+    padding-top: 60px; /* room for the hamburger button */
+  }
+
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .app-shell.sidebar-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 12, 0.3);
+    z-index: 90;
+  }
+
+  /* Editor column gets more breathing room (less padding, full width) */
+  .editor-column {
+    padding: 60px 16px 30vh;
+  }
+
+  /* Touch devices can't hover — the row action menu trigger has to be
+     permanently visible. */
+  .row-more {
+    opacity: 1;
+  }
+
+  /* PDF embed: fit the viewport instead of breaking out of the column,
+     because there's no extra horizontal room on mobile. */
+  .pdf-embed {
+    --pdf-target-width: 100%;
+    margin: 12px 0;
+  }
+  .pdf-embed__frame {
+    height: 60vh;
+    min-height: 360px;
+  }
+
+  /* Handwriting block — let it fill the available width */
+  .hw-block {
+    display: block;
+  }
+  .hw-block__img {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .editor-column {
+    padding: 56px 12px 25vh;
+  }
+  .palette {
+    width: calc(100vw - 16px);
+    max-height: 80vh;
+  }
+}
+
+/* Command palette (Cmd+K) */
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 12, 0.25);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.palette {
+  width: min(600px, calc(100vw - 32px));
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(20, 18, 12, 0.08),
+    0 20px 60px rgba(20, 18, 12, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.palette-input {
+  border: none;
+  outline: none;
+  padding: 16px 20px;
+  font: inherit;
+  font-size: 15px;
+  color: #111;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.palette-input::placeholder {
+  color: #aaa;
+}
+
+.palette-hint {
+  padding: 20px;
+  color: #888;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.palette-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.08s;
+  min-width: 0;
+}
+.palette-item.selected,
+.palette-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.palette-icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-size: 14px;
+  color: #999;
+  line-height: 1.5;
+}
+
+.palette-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.palette-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-snippet {
+  font-size: 12px;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Backlinks panel — shown below the editor */
+.backlinks {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.backlinks-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 14px;
+}
+
+.backlinks-count {
+  font-weight: 500;
+  color: #aaa;
+  margin-left: 4px;
+}
+
+.backlinks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backlinks-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.025);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s, transform 0.05s;
+  border: 1px solid transparent;
+}
+.backlinks-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.backlinks-item:active {
+  transform: translateY(1px);
+}
+
+.backlinks-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 3px;
+}
+
+.backlinks-snippet {
+  font-size: 12px;
+  color: #777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tags — inline clickable category labels (#tag) */
+.tag {
+  display: inline;
+  padding: 0px 6px;
+  margin: 0 1px;
+  border-radius: 999px;
+  background: rgba(72, 138, 90, 0.1);
+  color: #2e6c43;
+  border: 1px solid rgba(72, 138, 90, 0.25);
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  line-height: 1.6;
+  vertical-align: baseline;
+}
+.tag:hover {
+  background: rgba(72, 138, 90, 0.18);
+  border-color: rgba(72, 138, 90, 0.5);
+  color: #1f4e30;
+}
+.tag:active {
+  transform: translateY(1px);
+}
+
+/* Wikilinks — inline clickable references to other notes */
+.wikilink {
+  color: #3a5a8a;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(58, 90, 138, 0.4);
+  padding: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.wikilink:hover {
+  background: rgba(58, 90, 138, 0.08);
+  border-bottom-color: #3a5a8a;
+  color: #2a4a7a;
+}
+.wikilink:active {
+  background: rgba(58, 90, 138, 0.15);
+}
+
+.pdf-embed {
+  /* Default = "Breit": modest break-out from the 760px editor column.
+     We use position:relative + transform for centering — flex-layout parents
+     (BlockNote wraps each block in a flex container) make percentage margins
+     unreliable. flex-shrink: 0 + min-width are crucial: without them, the
+     parent flex container shrinks the PDF back down to its own width and
+     `width: 1100px` is silently ignored. */
+  --pdf-target-width: min(1100px, calc(100vw - 260px - 64px));
+  width: var(--pdf-target-width);
+  min-width: var(--pdf-target-width);
+  flex-shrink: 0;
+  margin: 16px 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: #fafafa;
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+}
+
+.pdf-embed[data-size="narrow"] {
+  /* Stays inside the editor column — no break-out, no centering trick */
+  --pdf-target-width: 100%;
+  min-width: 0;
+  left: 0;
+  transform: none;
+}
+
+.pdf-embed[data-size="wide"] {
+  --pdf-target-width: min(1500px, calc(100vw - 260px - 64px));
+}
+
+.pdf-embed__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #555;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.pdf-embed__filename {
+  font-weight: 500;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+.pdf-embed__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.pdf-embed__sizes {
+  display: inline-flex;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 2px;
+  gap: 2px;
+}
+
+.pdf-embed__size {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.pdf-embed__size:hover {
+  color: #111;
+}
+.pdf-embed__size.active {
+  background: #fff;
+  color: #111;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.pdf-embed__open {
+  font-size: 11px;
+  color: #555;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.pdf-embed__open:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111;
+}
+
+.pdf-embed__frame {
+  display: block;
+  width: 100%;
+  height: 80vh;
+  min-height: 560px;
+  border: 0;
+  background: #fff;
+}
+
+.pdf-embed--empty {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+}
+
+/* === Handwriting block (inline in editor) === */
+.hw-block {
+  position: relative;
+  display: inline-block;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  max-width: 100%;
+}
+
+.hw-block__img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.hw-block__edit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(20, 18, 12, 0.7);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  backdrop-filter: blur(4px);
+}
+.hw-block:hover .hw-block__edit {
+  opacity: 1;
+}
+.hw-block__edit:hover {
+  background: rgba(20, 18, 12, 0.9);
+}
+
+/* === Handwrite Modal === */
+.hw-modal {
+  position: fixed;
+  inset: 0;
+  background: #f4f4f1;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.hw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.hw-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.hw-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hw-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.hw-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.hw-btn--ghost {
+  background: transparent;
+  color: #444;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.hw-btn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+.hw-btn--primary {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+.hw-btn--primary:hover:not(:disabled) {
+  background: #000;
+}
+
+.hw-canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: #fff;
+  margin: 16px;
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(20, 18, 12, 0.04),
+    0 8px 24px rgba(20, 18, 12, 0.08);
+  overflow: hidden;
+}
+
+.hw-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.hw-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 20px 16px;
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+}
+
+.hw-tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hw-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.hw-swatch:hover {
+  transform: scale(1.08);
+}
+.hw-swatch.active {
+  border-color: rgba(0, 0, 0, 0.4);
+  transform: scale(1.12);
+}
+
+.hw-size {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+.hw-size:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.hw-size.active {
+  border-color: #111;
+  background: rgba(0, 0, 0, 0.06);
+}

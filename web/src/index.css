@@ -1,0 +1,26 @@
+:root {
+  --paper-bg: #ffffff;
+  --ink: #1a1a1a;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper-bg: #1a1a1a;
+    --ink: #ececec;
+    color-scheme: dark;
+  }
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background: var(--paper-bg);
+  color: var(--ink);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "Menlo", "Monaco", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

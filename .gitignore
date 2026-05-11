@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+web/.vite/
+
+# Local notes — these are personal user data, never commit
+notes/
+
+# Editor / OS cruft
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.swp
+
+# Claude Code project metadata
+.claude/
+
+# Vite + Node debug
+.npm/
+pnpm-debug.log*
+npm-debug.log*
