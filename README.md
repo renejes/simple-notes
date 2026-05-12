@@ -140,13 +140,28 @@ pnpm dev --host
 
 ### MCP server (optional, for Claude Desktop)
 
+Lets Claude Desktop read, search, and edit your notes via 12 dedicated
+tools. Both the web app and the MCP server share the same `notes/` folder
+as their source of truth — you can run them simultaneously.
+
+**1. Build it.**
+
 ```sh
-cd ../mcp-server
+cd ../mcp-server          # if you're still in web/
 pnpm install
-pnpm build
+pnpm build                # produces dist/index.js
 ```
 
-Then add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+**2. Edit Claude Desktop's config.** Open the file at:
+
+| OS      | Path                                                              |
+| ------- | ----------------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json`                     |
+| Linux   | `~/.config/Claude/claude_desktop_config.json`                     |
+
+If the file doesn't exist yet, create it. Then add (or merge in) the
+`notes` entry:
 
 ```json
 {
@@ -162,7 +177,26 @@ Then add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop. Full instructions: [`mcp-server/README.md`](mcp-server/README.md).
+Replace both paths with the actual absolute paths on your machine (the
+`args` path points to the built MCP server, `NOTES_ROOT` points to your
+notes folder). They **must** be absolute — Claude Desktop doesn't resolve
+relative paths.
+
+**3. Restart Claude Desktop.** Fully quit and relaunch. In a chat, click
+the tools icon and you should see 12 tools (`list_notes`, `read_note`,
+`search_notes`, etc.).
+
+**4. Try it.** Ask Claude something like _„Liste meine Notizen"_ or _„Such
+nach allem mit #music"_ — it'll pick the right tool automatically.
+
+For the full tool reference and a terminal-based smoke test, see
+[`mcp-server/README.md`](mcp-server/README.md).
+
+> **When moving to Hetzner/Nextcloud:** keep the MCP server running locally
+> on your Mac and point `NOTES_ROOT` at your Nextcloud Desktop sync folder
+> (e.g. `~/Nextcloud/Notes`). The MCP server doesn't need to know about
+> WebDAV — Nextcloud Desktop handles syncing between local files and the
+> remote. Details in [`Documentation/next-steps.md`](Documentation/next-steps.md).
 
 ## File layout
 
@@ -217,16 +251,18 @@ notes-app/
 
 ## Roadmap
 
-- [ ] Deployment guide for Hetzner VPS + Nextcloud WebDAV (replaces the
-      Vite middleware with a browser-side WebDAV client in production)
-- [ ] Optional Service Worker for offline editing of recently-opened notes
-- [ ] Code-block syntax highlighting (Shiki or similar)
-- [ ] Note templates with placeholder substitution
-- [ ] Manual dark-mode toggle (currently follows system preference)
-- [ ] Tag rename (global find/replace across notes)
+The app is feature-complete for local solo daily-use. One major piece is
+left:
 
-See [`Documentation/next-steps.md`](Documentation/next-steps.md) for the
-full plan and trade-offs.
+- [ ] **Deployment** — Hetzner VPS + Nextcloud (WebDAV-direct from the
+      browser, no custom backend). See
+      [`Documentation/next-steps.md`](Documentation/next-steps.md) for the
+      architecture sketch and a step-by-step plan, including how the MCP
+      server's `NOTES_ROOT` config changes after migration.
+
+Smaller polish items (manual dark-mode toggle, tag rename, image resize,
+keyboard-shortcut help dialog, etc.) are tracked in
+[`Documentation/next-steps.md`](Documentation/next-steps.md).
 
 ## Contributing
 
