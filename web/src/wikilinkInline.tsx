@@ -19,49 +19,71 @@ function basenameOf(target: string): string {
   return i >= 0 ? target.slice(i + 1) : target;
 }
 
+// Module-level callback now also accepts an optional heading anchor.
+// Reassign the typed wrapper so existing callers using setWikilinkClickCallback
+// don't need to know about the anchor — they still receive (target) only.
+let wikilinkClickCallbackV2:
+  | ((target: string, anchor?: string) => void)
+  | null = null;
+
 export const WikilinkInline = createReactInlineContentSpec(
   {
     type: "wikilink",
     propSchema: {
       target: { default: "" as string },
+      anchor: { default: "" as string },
     },
     content: "none",
   },
   {
     render: ({ inlineContent }) => {
       const target = inlineContent.props.target as string;
-      const href = `?path=${encodeURIComponent(target + ".md")}`;
+      const anchor = (inlineContent.props.anchor as string) || "";
+      const href =
+        `?path=${encodeURIComponent(target + ".md")}` +
+        (anchor ? `#${encodeURIComponent(anchor)}` : "");
+      const label = anchor
+        ? `${basenameOf(target)} › ${anchor}`
+        : basenameOf(target);
       return (
         <a
           className="wikilink"
           href={href}
           contentEditable={false}
           onClick={(e) => {
-            // Let Cmd/Ctrl/Shift/middle-click pass through to the browser
-            // for native new-tab behavior.
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
               return;
             e.preventDefault();
-            wikilinkClickCallback?.(target);
+            // Prefer the v2 callback (knows about anchors); fall back to the
+            // legacy one for compatibility.
+            if (wikilinkClickCallbackV2) {
+              wikilinkClickCallbackV2(target, anchor || undefined);
+            } else {
+              wikilinkClickCallback?.(target);
+            }
           }}
-          title={target}
+          title={anchor ? `${target}#${anchor}` : target}
         >
-          {basenameOf(target)}
+          {label}
         </a>
       );
     },
-    // toExternalHTML emits a span with a data attribute containing the raw
-    // [[target]] text. The HTML→MD converter outputs the text as-is. The
-    // tryParseMarkdownToBlocks then sees plain `[[target]]` text on reload,
-    // which the rehydration step below converts back into wikilink nodes.
     toExternalHTML: ({ inlineContent }) => {
       const target = inlineContent.props.target as string;
-      return <>{`[[${target}]]`}</>;
+      const anchor = (inlineContent.props.anchor as string) || "";
+      const full = anchor ? `${target}#${anchor}` : target;
+      return <>{`[[${full}]]`}</>;
     },
   },
 );
 
-const WIKILINK_RE = /\[\[([^\]]+)\]\]/g;
+export function setWikilinkClickCallbackV2(
+  cb: ((target: string, anchor?: string) => void) | null,
+) {
+  wikilinkClickCallbackV2 = cb;
+}
+
+const WIKILINK_RE = /\[\[([^\]\#]+)(?:#([^\]]+))?\]\]/g;
 
 // Walk parsed blocks and split any text-inline that contains `[[name]]`
 // occurrences into a mix of text and wikilink inlines. Pure runtime
@@ -129,7 +151,10 @@ function splitTextWithWikilinks(
     }
     out.push({
       type: "wikilink",
-      props: { target: m[1] },
+      props: {
+        target: m[1],
+        anchor: m[2] ?? "",
+      },
     });
     lastIndex = m.index + m[0].length;
   }

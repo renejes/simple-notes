@@ -1,6 +1,9 @@
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
-import { filterSuggestionItems } from "@blocknote/core";
+import {
+  filterSuggestionItems,
+  insertOrUpdateBlockForSlashMenu,
+} from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
   getDefaultReactSlashMenuItems,
@@ -23,6 +26,8 @@ import {
 } from "./tagInline";
 import { TagPanel } from "./tagPanel";
 import { TrashModal } from "./trashModal";
+import { MoveModal } from "./moveModal";
+import { TasksModal } from "./tasksModal";
 import { uploadBlockNoteFile } from "./upload";
 import {
   type Frontmatter,
@@ -33,6 +38,7 @@ import {
 import {
   rehydrateWikilinks,
   setWikilinkClickCallback,
+  setWikilinkClickCallbackV2,
   unescapeWikilinks,
 } from "./wikilinkInline";
 import "./App.css";
@@ -40,8 +46,23 @@ import "./App.css";
 const SAVE_DEBOUNCE_MS = 800;
 
 type Entry =
-  | { type: "file"; name: string; path: string; mtime?: number }
+  | {
+      type: "file";
+      name: string;
+      path: string;
+      mtime?: number;
+      pinned?: boolean;
+    }
   | { type: "dir"; name: string; path: string; children: Entry[] };
+
+function collectPinnedFiles(entries: Entry[]): Entry[] {
+  const out: Entry[] = [];
+  for (const e of entries) {
+    if (e.type === "file" && e.pinned) out.push(e);
+    else if (e.type === "dir") out.push(...collectPinnedFiles(e.children));
+  }
+  return out;
+}
 
 type SortOption = "name-asc" | "name-desc" | "modified-desc" | "modified-asc";
 const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
@@ -125,6 +146,111 @@ function dailyNotePath(): string {
   return `Daily/${y}-${m}-${d}.md`;
 }
 
+// Recursively count words across BlockNote's block tree. Skips inline
+// content that isn't user-visible text (wikilinks/tags surface as metadata).
+function countWordsInBlocks(blocks: unknown[]): number {
+  let n = 0;
+  function add(text: unknown) {
+    if (typeof text !== "string") return;
+    const m = text.match(/\S+/g);
+    if (m) n += m.length;
+  }
+  function walkInline(arr: unknown[]) {
+    for (const c of arr) {
+      const inline = c as { type?: string; text?: unknown; content?: unknown };
+      if (inline?.type === "text") add(inline.text);
+      else if (inline?.type === "link" && Array.isArray(inline.content)) {
+        walkInline(inline.content);
+      }
+    }
+  }
+  for (const b of blocks) {
+    const block = b as { content?: unknown; children?: unknown };
+    if (Array.isArray(block.content)) walkInline(block.content);
+    if (Array.isArray(block.children)) {
+      n += countWordsInBlocks(block.children);
+    }
+  }
+  return n;
+}
+
+function extractBlockText(block: unknown): string {
+  const b = block as { content?: unknown };
+  if (!Array.isArray(b.content)) return "";
+  let t = "";
+  for (const c of b.content) {
+    const inline = c as { type?: string; text?: unknown; content?: unknown };
+    if (inline?.type === "text" && typeof inline.text === "string") {
+      t += inline.text;
+    } else if (inline?.type === "link" && Array.isArray(inline.content)) {
+      for (const sub of inline.content) {
+        const s = sub as { type?: string; text?: unknown };
+        if (s?.type === "text" && typeof s.text === "string") t += s.text;
+      }
+    }
+  }
+  return t;
+}
+
+type Heading = { id: string; level: number; text: string };
+
+function extractHeadings(blocks: unknown[]): Heading[] {
+  const out: Heading[] = [];
+  for (const b of blocks) {
+    const block = b as {
+      id?: string;
+      type?: string;
+      props?: { level?: unknown };
+      children?: unknown;
+    };
+    if (
+      block.type === "heading" &&
+      typeof block.id === "string"
+    ) {
+      const lvl =
+        typeof block.props?.level === "number" ? block.props.level : 1;
+      const text = extractBlockText(block).trim();
+      if (text) out.push({ id: block.id, level: lvl, text });
+    }
+    if (Array.isArray(block.children)) {
+      out.push(...extractHeadings(block.children));
+    }
+  }
+  return out;
+}
+
+function findHeadingBlockId(
+  blocks: unknown[],
+  anchor: string,
+): string | null {
+  const target = anchor.toLowerCase().trim();
+  for (const b of blocks) {
+    const block = b as { type?: string; id?: string; children?: unknown };
+    if (block.type === "heading") {
+      const text = extractBlockText(block).toLowerCase().trim();
+      if (text === target && typeof block.id === "string") return block.id;
+    }
+    if (Array.isArray(block.children) && block.children.length > 0) {
+      const nested = findHeadingBlockId(block.children, anchor);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function scrollToHeading(blockId: string) {
+  // Wait one paint so the DOM reflects the just-replaced blocks.
+  window.requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-id="${blockId}"]`);
+    if (el && "scrollIntoView" in el) {
+      (el as HTMLElement).scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  });
+}
+
 function formatDate(iso: string | undefined): string {
   if (!iso || typeof iso !== "string") return "";
   const d = new Date(iso);
@@ -189,8 +315,16 @@ export default function App() {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const [moveSource, setMoveSource] = useState<
+    { path: string; isDir: boolean } | null
+  >(null);
   const currentFrontmatterRef = useRef<Frontmatter>({});
+  const pendingAnchorRef = useRef<string | null>(null);
   const [tagRefreshTick, setTagRefreshTick] = useState(0);
+  const [wordCount, setWordCount] = useState(0);
+  const [headings, setHeadings] = useState<Heading[]>([]);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const [editingStrokes, setEditingStrokes] = useState<Stroke[] | undefined>(
     undefined,
   );
@@ -233,13 +367,25 @@ export default function App() {
   }, [requestHandwriteEdit]);
 
   // Wikilink click → navigate in the same tab. Cmd/Ctrl+click is handled
-  // natively by the <a> href in the wikilink render.
+  // natively by the <a> href in the wikilink render. If the link includes a
+  // heading anchor (`[[Note#Heading]]`), the load flow scrolls to that
+  // heading after the content arrives.
   useEffect(() => {
+    setWikilinkClickCallbackV2(async (target, anchor) => {
+      await flushPendingSave();
+      pendingAnchorRef.current = anchor ?? null;
+      setCurrentPath(`${target}.md`);
+    });
+    // Keep the v1 callback registered as a no-op fallback so any leftover
+    // wikilinks rendered before V2 was wired still work.
     setWikilinkClickCallback(async (target) => {
       await flushPendingSave();
       setCurrentPath(`${target}.md`);
     });
-    return () => setWikilinkClickCallback(null);
+    return () => {
+      setWikilinkClickCallbackV2(null);
+      setWikilinkClickCallback(null);
+    };
   }, []);
 
   // Tag click → open the command palette pre-filled with #tagname so the
@@ -304,11 +450,15 @@ export default function App() {
   const sortedTree = useMemo(() => sortTree(tree, sortBy), [tree, sortBy]);
 
   // Initial load — honor ?path= in the URL so notes are deep-linkable and
-  // openable in new tabs.
+  // openable in new tabs. URL hash (`#heading`) is a heading anchor.
   useEffect(() => {
     (async () => {
       const data = await refreshTree();
       const urlPath = new URLSearchParams(window.location.search).get("path");
+      const hash = window.location.hash
+        ? decodeURIComponent(window.location.hash.slice(1))
+        : "";
+      if (hash) pendingAnchorRef.current = hash;
       if (urlPath) {
         setCurrentPath(urlPath);
       } else {
@@ -330,12 +480,16 @@ export default function App() {
     }
   }, [currentPath]);
 
-  // Respond to browser Back/Forward.
+  // Respond to browser Back/Forward (including any heading anchor).
   useEffect(() => {
     function onPop() {
       const urlPath = new URLSearchParams(window.location.search).get(
         "path",
       );
+      const hash = window.location.hash
+        ? decodeURIComponent(window.location.hash.slice(1))
+        : "";
+      if (hash) pendingAnchorRef.current = hash;
       setCurrentPath(urlPath || null);
     }
     window.addEventListener("popstate", onPop);
@@ -384,6 +538,62 @@ export default function App() {
       return next;
     });
   }, [currentPath]);
+
+  function noteTitleForExport(): string {
+    if (!currentPath) return "note";
+    const base = currentPath.split("/").pop() ?? currentPath;
+    return base.replace(/\.md$/, "");
+  }
+
+  async function exportAsHtml() {
+    const title = noteTitleForExport();
+    // BlockNote produces lossy HTML for export; close enough for a self-
+    // contained read-only file. We embed a small print-friendly stylesheet.
+    const body = await editor.blocksToHTMLLossy(editor.document);
+    const css = `
+      body { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+             max-width: 760px; margin: 40px auto; padding: 0 20px;
+             color: #1a1a1a; line-height: 1.6; }
+      h1,h2,h3,h4,h5,h6 { font-weight: 700; letter-spacing: -0.005em; }
+      h1 { font-size: 1.7em; } h2 { font-size: 1.35em; } h3 { font-size: 1.15em; }
+      a { color: #3a5a8a; }
+      img { max-width: 100%; height: auto; }
+      code { background: rgba(80,70,50,0.07); padding: 1px 4px; border-radius: 3px; }
+      pre { background: rgba(80,70,50,0.07); padding: 12px; border-radius: 6px;
+            overflow-x: auto; }
+      blockquote { border-left: 3px solid #d4cfc1; padding-left: 12px;
+                   color: #555; margin-left: 0; }
+      table { border-collapse: collapse; }
+      th, td { border: 1px solid #ddd; padding: 6px 10px; }
+    `.trim();
+    const doc = `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>${css}</style>
+</head>
+<body>
+<h1>${title}</h1>
+${body}
+</body>
+</html>`;
+    const blob = new Blob([doc], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportAsPdf() {
+    // Browser's built-in print dialog — user picks "Save as PDF" there.
+    // Print CSS in App.css hides chrome (sidebar, save indicator, etc).
+    window.print();
+  }
 
   // Open (or create) today's daily note under Daily/YYYY-MM-DD.md
   async function openDailyNote() {
@@ -435,6 +645,14 @@ export default function App() {
       editor.replaceBlocks(editor.document, blocks);
       loadedRef.current = true;
       setSaveState("saved");
+      // After load: if a heading anchor was requested (wikilink click or URL
+      // hash), scroll the matching heading into view.
+      const anchor = pendingAnchorRef.current;
+      pendingAnchorRef.current = null;
+      if (anchor) {
+        const id = findHeadingBlockId(editor.document, anchor);
+        if (id) scrollToHeading(id);
+      }
     })();
     return () => {
       cancelled = true;
@@ -455,6 +673,8 @@ export default function App() {
   }, [menuPath]);
 
   function onEditorChange() {
+    setWordCount(countWordsInBlocks(editor.document));
+    setHeadings(extractHeadings(editor.document));
     if (!loadedRef.current) return;
     const path = currentPathRef.current;
     if (!path) return;
@@ -465,6 +685,21 @@ export default function App() {
       setSaveState(ok ? "saved" : "error");
     }, SAVE_DEBOUNCE_MS);
   }
+
+  // Recompute word count + outline once whenever a fresh note finishes
+  // loading (the load flow uses replaceBlocks but loadedRef gating means
+  // onEditorChange won't compute these during the load).
+  useEffect(() => {
+    if (currentPath) {
+      window.setTimeout(() => {
+        setWordCount(countWordsInBlocks(editor.document));
+        setHeadings(extractHeadings(editor.document));
+      }, 0);
+    } else {
+      setWordCount(0);
+      setHeadings([]);
+    }
+  }, [currentPath, editor]);
 
   async function switchTo(path: string) {
     // Always close the mobile sidebar on navigation. On desktop the state is
@@ -562,6 +797,88 @@ export default function App() {
       } else if (isDir && cp.startsWith(oldPath + "/")) {
         setCurrentPath(newPath + cp.slice(oldPath.length));
       }
+    }
+  }
+
+  // Returns true if `from` can be dropped into `toFolder` (path-without-trailing-slash,
+  // or "" for the root). Refuses self-drop, descendant drop, and no-op
+  // (already in the target folder).
+  function canMove(from: string, toFolder: string): boolean {
+    if (!from) return false;
+    if (from === toFolder) return false;
+    if (toFolder && (toFolder === from || toFolder.startsWith(from + "/")))
+      return false;
+    const parent = from.includes("/")
+      ? from.slice(0, from.lastIndexOf("/"))
+      : "";
+    if (parent === toFolder) return false;
+    return true;
+  }
+
+  async function moveItem(from: string, toFolder: string) {
+    if (!canMove(from, toFolder)) return;
+    const name = from.split("/").pop() ?? from;
+    const newPath = toFolder ? `${toFolder}/${name}` : name;
+    await flushPendingSave();
+    const res = await fetch("/api/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: newPath }),
+    });
+    if (!res.ok) {
+      if (res.status === 409) {
+        alert(
+          `Es existiert bereits ein Eintrag "${name}" am Zielort — Verschieben abgebrochen.`,
+        );
+      } else {
+        alert("Verschieben fehlgeschlagen");
+      }
+      return;
+    }
+    await refreshTree();
+    if (toFolder) ensureExpanded([toFolder]);
+    const cp = currentPathRef.current;
+    if (cp) {
+      if (cp === from) {
+        setCurrentPath(newPath);
+      } else if (cp.startsWith(from + "/")) {
+        setCurrentPath(newPath + cp.slice(from.length));
+      }
+    }
+  }
+
+  async function togglePinned(filePath: string) {
+    setMenuPath(null);
+    await flushPendingSave();
+    try {
+      const res = await fetch(
+        `/api/file?path=${encodeURIComponent(filePath)}`,
+      );
+      const md = res.ok ? await res.text() : "";
+      const { frontmatter, body } = splitFrontmatter(md);
+      const isPinned = frontmatter.pinned === true;
+      const nextFm: Frontmatter = { ...frontmatter };
+      if (isPinned) {
+        delete nextFm.pinned;
+      } else {
+        nextFm.pinned = true;
+      }
+      const next = joinFrontmatter(nextFm, body);
+      await fetch(`/api/file?path=${encodeURIComponent(filePath)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "text/markdown" },
+        body: next,
+      });
+      // If we just toggled the OPEN note, keep its in-memory frontmatter
+      // state in sync so subsequent saves don't undo our change.
+      if (filePath === currentPathRef.current) {
+        currentFrontmatterRef.current = nextFm;
+        setCurrentFrontmatter(nextFm);
+      }
+      await refreshTree();
+    } catch (err) {
+      console.error("toggle pinned failed", err);
+      alert("Pinnen fehlgeschlagen");
     }
   }
 
@@ -673,6 +990,45 @@ export default function App() {
             </button>
           </div>
         </div>
+        {(() => {
+          const pinned = collectPinnedFiles(tree);
+          if (pinned.length === 0) return null;
+          return (
+            <section className="pinned-panel">
+              <div className="pinned-header">Pinned</div>
+              <ul className="pinned-list">
+                {pinned.map((p) => (
+                  <li key={p.path}>
+                    <a
+                      className={
+                        "pinned-item" +
+                        (p.path === currentPath ? " active" : "")
+                      }
+                      href={`?path=${encodeURIComponent(p.path)}`}
+                      onClick={(ev) => {
+                        if (
+                          ev.metaKey ||
+                          ev.ctrlKey ||
+                          ev.shiftKey ||
+                          ev.button !== 0
+                        )
+                          return;
+                        ev.preventDefault();
+                        switchTo(p.path);
+                      }}
+                      title={p.path}
+                    >
+                      <span className="pinned-icon">📌</span>
+                      <span className="pinned-text">
+                        {p.name.replace(/\.md$/, "")}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })()}
         <TreeView
           entries={sortedTree}
           depth={0}
@@ -686,6 +1042,11 @@ export default function App() {
           onCreateFolder={createFolder}
           onRename={renameItem}
           onDelete={deleteItem}
+          onTogglePin={togglePinned}
+          onRequestMove={(path, isDir) => {
+            setMenuPath(null);
+            setMoveSource({ path, isDir });
+          }}
         />
         <TagPanel
           refreshTick={tagRefreshTick}
@@ -695,6 +1056,13 @@ export default function App() {
           }}
         />
         <div className="sidebar-footer">
+          <button
+            type="button"
+            className="sidebar-footer-btn"
+            onClick={() => setTasksOpen(true)}
+          >
+            ☐ Aufgaben
+          </button>
           <button
             type="button"
             className="sidebar-footer-btn"
@@ -726,7 +1094,64 @@ export default function App() {
                   Erstellt {formatDate(currentFrontmatter.created as string)}
                 </span>
               )}
+              {wordCount > 0 && (
+                <span className="note-meta-date">
+                  {wordCount.toLocaleString("de-DE")} Wörter ·{" "}
+                  {Math.max(1, Math.ceil(wordCount / 200))} Min
+                </span>
+              )}
+              <div className="note-meta-actions">
+                {headings.length > 0 && (
+                  <button
+                    type="button"
+                    className={
+                      "note-meta-btn" + (outlineOpen ? " active" : "")
+                    }
+                    onClick={() => setOutlineOpen((v) => !v)}
+                    title="Inhaltsverzeichnis der Notiz"
+                  >
+                    Outline ({headings.length})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="note-meta-btn"
+                  onClick={exportAsPdf}
+                  title="Browser-Druck-Dialog → ‚Als PDF speichern'"
+                >
+                  Drucken
+                </button>
+                <button
+                  type="button"
+                  className="note-meta-btn"
+                  onClick={exportAsHtml}
+                  title="Notiz als eigenständige HTML-Datei herunterladen"
+                >
+                  HTML
+                </button>
+              </div>
             </div>
+          )}
+          {currentPath && outlineOpen && headings.length > 0 && (
+            <nav className="outline">
+              <ul>
+                {headings.map((h) => (
+                  <li
+                    key={h.id}
+                    style={{ paddingLeft: (h.level - 1) * 12 }}
+                  >
+                    <button
+                      type="button"
+                      className="outline-item"
+                      data-level={h.level}
+                      onClick={() => scrollToHeading(h.id)}
+                    >
+                      {h.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           )}
           {currentPath ? (
             <BlockNoteView
@@ -821,6 +1246,49 @@ export default function App() {
                       ]);
                     },
                   }));
+
+                  // Anchor links — one item per (note × heading) combo.
+                  // Fetched fresh on each menu open; small vaults make this
+                  // cheap. Filtered by query downstream.
+                  let anchorItems: typeof wikilinkItems = [];
+                  try {
+                    const res = await fetch("/api/headings");
+                    if (res.ok) {
+                      const headings = (await res.json()) as Array<{
+                        path: string;
+                        heading: string;
+                        level: number;
+                      }>;
+                      anchorItems = headings.map((h) => {
+                        const target = h.path.replace(/\.md$/, "");
+                        const noteName =
+                          target.split("/").pop() ?? target;
+                        return {
+                          title: `↳ ${noteName} › ${h.heading}`,
+                          aliases: [
+                            "anchor",
+                            "heading",
+                            "abschnitt",
+                            noteName.toLowerCase(),
+                            h.heading.toLowerCase(),
+                          ],
+                          group: "Anchor-Links",
+                          subtext: target.includes("/") ? target : undefined,
+                          onItemClick: () => {
+                            editor.insertInlineContent([
+                              {
+                                type: "wikilink",
+                                props: { target, anchor: h.heading },
+                              },
+                              " ",
+                            ]);
+                          },
+                        };
+                      });
+                    }
+                  } catch {
+                    /* offline / endpoint unreachable — skip anchors */
+                  }
                   return filterSuggestionItems(
                     [
                       ...getDefaultReactSlashMenuItems(editor),
@@ -837,6 +1305,25 @@ export default function App() {
                         group: "Aktionen",
                         subtext: "Notiz finden (⌘K)",
                         onItemClick: () => setPaletteOpen(true),
+                      },
+                      {
+                        title: "Aufgabe",
+                        aliases: [
+                          "aufgabe",
+                          "task",
+                          "todo",
+                          "checklist",
+                          "checkbox",
+                          "checkliste",
+                          "kasten",
+                        ],
+                        group: "Aktionen",
+                        subtext: "Checkbox-Aufgabe einfügen ( - [ ] )",
+                        onItemClick: () => {
+                          insertOrUpdateBlockForSlashMenu(editor, {
+                            type: "checkListItem",
+                          });
+                        },
                       },
                       {
                         title: "Handschrift",
@@ -856,6 +1343,7 @@ export default function App() {
                         },
                       },
                       ...wikilinkItems,
+                      ...anchorItems,
                     ],
                     query,
                   );
@@ -881,6 +1369,24 @@ export default function App() {
         onClose={() => setTrashOpen(false)}
         onRestored={async () => {
           await refreshTree();
+        }}
+      />
+
+      <TasksModal
+        open={tasksOpen}
+        onClose={() => setTasksOpen(false)}
+        onNavigate={switchTo}
+      />
+
+      <MoveModal
+        open={moveSource !== null}
+        source={moveSource}
+        tree={tree}
+        onClose={() => setMoveSource(null)}
+        onMove={async (toFolder) => {
+          const src = moveSource;
+          setMoveSource(null);
+          if (src) await moveItem(src.path, toFolder);
         }}
       />
 
@@ -942,6 +1448,8 @@ type TreeViewProps = {
   onCreateFolder: (parent: string) => void;
   onRename: (path: string, isDir: boolean) => void;
   onDelete: (path: string, isDir: boolean) => void;
+  onRequestMove: (path: string, isDir: boolean) => void;
+  onTogglePin: (path: string) => void;
 };
 
 function TreeView(props: TreeViewProps) {
@@ -958,6 +1466,8 @@ function TreeView(props: TreeViewProps) {
     onCreateFolder,
     onRename,
     onDelete,
+    onRequestMove,
+    onTogglePin,
   } = props;
 
   return (
@@ -996,6 +1506,9 @@ function TreeView(props: TreeViewProps) {
                     <button onClick={() => onCreateFolder(e.path)}>
                       Neuer Unterordner
                     </button>
+                    <button onClick={() => onRequestMove(e.path, true)}>
+                      Verschieben…
+                    </button>
                     <button onClick={() => onRename(e.path, true)}>
                       Umbenennen
                     </button>
@@ -1022,6 +1535,8 @@ function TreeView(props: TreeViewProps) {
                   onCreateFolder={onCreateFolder}
                   onRename={onRename}
                   onDelete={onDelete}
+                  onRequestMove={onRequestMove}
+                  onTogglePin={onTogglePin}
                 />
               )}
             </li>
@@ -1074,6 +1589,12 @@ function TreeView(props: TreeViewProps) {
                     }}
                   >
                     In neuem Tab öffnen
+                  </button>
+                  <button onClick={() => onTogglePin(e.path)}>
+                    {e.pinned ? "Pin entfernen" : "Anpinnen"}
+                  </button>
+                  <button onClick={() => onRequestMove(e.path, false)}>
+                    Verschieben…
                   </button>
                   <button onClick={() => onRename(e.path, false)}>
                     Umbenennen

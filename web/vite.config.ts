@@ -163,6 +163,19 @@ async function garbageCollect() {
   }
 }
 
+// Cheap "is this MD file pinned" check: read the first ~512 bytes, look for
+// `pinned: true` inside the YAML frontmatter. Avoids parsing every file's
+// YAML on each tree fetch.
+const PINNED_RE = /^---[\s\S]*?\n\s*pinned\s*:\s*true\b/;
+async function isPinned(absPath: string): Promise<boolean> {
+  try {
+    const fh = await readFile(absPath, { encoding: "utf8" });
+    return PINNED_RE.test(fh.slice(0, 1024));
+  } catch {
+    return false;
+  }
+}
+
 async function listTree(dir: string, rel = ""): Promise<unknown> {
   const entries = await readdir(dir, { withFileTypes: true });
   const out = [];
@@ -186,7 +199,14 @@ async function listTree(dir: string, rel = ""): Promise<unknown> {
       } catch {
         /* ignore */
       }
-      out.push({ type: "file", name: e.name, path: childRel, mtime });
+      const pinned = await isPinned(full);
+      out.push({
+        type: "file",
+        name: e.name,
+        path: childRel,
+        mtime,
+        ...(pinned ? { pinned: true } : {}),
+      });
     }
   }
   return out;
@@ -564,6 +584,135 @@ function notesApi(): Plugin {
         }
       });
 
+      // Flat list of every Markdown heading across all notes. Used by the
+      // slash menu to offer `[[Note#Heading]]` anchor links.
+      // Returns [{ path, heading, level }].
+      server.middlewares.use("/api/headings", async (req, res) => {
+        try {
+          if (req.method !== "GET") {
+            res.statusCode = 405;
+            res.end("method not allowed");
+            return;
+          }
+          const results: { path: string; heading: string; level: number }[] =
+            [];
+          const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+          async function walk(dir: string) {
+            let entries: import("node:fs").Dirent[];
+            try {
+              entries = await readdir(dir, { withFileTypes: true });
+            } catch {
+              return;
+            }
+            for (const e of entries) {
+              if (e.name.startsWith(".")) continue;
+              if (dir === NOTES_ROOT && e.name === ATTACHMENTS_DIR) continue;
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) {
+                await walk(full);
+              } else if (e.isFile() && e.name.endsWith(".md")) {
+                const rel = path
+                  .relative(NOTES_ROOT, full)
+                  .split(path.sep)
+                  .join("/");
+                try {
+                  const content = await readFile(full, "utf8");
+                  // Skip frontmatter if present so we don't treat YAML keys
+                  // (which start with no `#`) or stray markers as headings.
+                  const body = content.replace(/^---[\s\S]*?\n---\n?/, "");
+                  const lines = body.split("\n");
+                  let inFence = false;
+                  for (const line of lines) {
+                    if (/^\s*```/.test(line)) {
+                      inFence = !inFence;
+                      continue;
+                    }
+                    if (inFence) continue;
+                    const m = line.match(HEADING_RE);
+                    if (m) {
+                      results.push({
+                        path: rel,
+                        heading: m[2].trim(),
+                        level: m[1].length,
+                      });
+                    }
+                  }
+                } catch {
+                  /* skip */
+                }
+              }
+            }
+          }
+          await walk(NOTES_ROOT);
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(results));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(String(err));
+        }
+      });
+
+      // Aggregate every open `- [ ]` task across all notes. Returns
+      // [{ path, line, text }] — `line` is 1-indexed for deep-link display.
+      server.middlewares.use("/api/tasks", async (req, res) => {
+        try {
+          if (req.method !== "GET") {
+            res.statusCode = 405;
+            res.end("method not allowed");
+            return;
+          }
+          const results: { path: string; line: number; text: string }[] = [];
+          // Markdown checkbox at start of a list item: `- [ ]` (or `* [ ]`).
+          // Skip checked items (`- [x]`).
+          const TASK_RE = /^\s*[-*]\s+\[\s\]\s+(.*)$/;
+
+          async function walk(dir: string) {
+            let entries: import("node:fs").Dirent[];
+            try {
+              entries = await readdir(dir, { withFileTypes: true });
+            } catch {
+              return;
+            }
+            for (const e of entries) {
+              if (e.name.startsWith(".")) continue;
+              if (dir === NOTES_ROOT && e.name === ATTACHMENTS_DIR) continue;
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) {
+                await walk(full);
+              } else if (e.isFile() && e.name.endsWith(".md")) {
+                const rel = path
+                  .relative(NOTES_ROOT, full)
+                  .split(path.sep)
+                  .join("/");
+                try {
+                  const content = await readFile(full, "utf8");
+                  const lines = content.split("\n");
+                  for (let i = 0; i < lines.length; i++) {
+                    const m = lines[i].match(TASK_RE);
+                    if (m) {
+                      results.push({
+                        path: rel,
+                        line: i + 1,
+                        text: m[1].trim(),
+                      });
+                    }
+                  }
+                } catch {
+                  /* skip */
+                }
+              }
+            }
+          }
+          await walk(NOTES_ROOT);
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(results));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(String(err));
+        }
+      });
+
       // Full-text search: case-insensitive substring match across all .md
       // files. Returns one snippet per matching file (the first match).
       server.middlewares.use("/api/search", async (req, res) => {
@@ -725,6 +874,21 @@ function notesApi(): Plugin {
           }
           const absFrom = resolveSafe(from);
           const absTo = resolveSafe(to);
+          if (absFrom === absTo) {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ ok: true, noop: true }));
+            return;
+          }
+          // Refuse overwrite — moving onto an existing path is almost always
+          // an accident (drag-drop, rename collision).
+          try {
+            await stat(absTo);
+            res.statusCode = 409;
+            res.end("target already exists");
+            return;
+          } catch {
+            /* good — target doesn't exist */
+          }
           await mkdir(path.dirname(absTo), { recursive: true });
           await rename(absFrom, absTo);
           res.setHeader("Content-Type", "application/json");

@@ -28,8 +28,9 @@ Hetzner VPS and have it talk directly to a Nextcloud instance.
       various helpers hit `/api/…` paths directly. Either:
   - (a) Introduce a thin `storage` interface (`readTree`, `readFile`,
         `writeFile`, `delete`, `rename`, `upload`, `search`, `backlinks`,
-        `tags`, `trash`) and have two implementations: `viteApi` (current)
-        and `webDav` (new), chosen at build-time via env var.
+        `tags`, `trash`, `tasks`, `headings`) and have two implementations:
+        `viteApi` (current) and `webDav` (new), chosen at build-time via env
+        var.
   - (b) Or rewrite `vite.config.ts`'s middleware as a separate tiny Node
         server that the VPS runs alongside Caddy, so the frontend stays
         identical. Simpler but adds an extra hop and a second deploy unit.
@@ -37,9 +38,10 @@ Hetzner VPS and have it talk directly to a Nextcloud instance.
         stated goal.
 - [ ] Implement `WebDAVStorage`. Use [webdav](https://www.npmjs.com/package/webdav)
       npm package OR hand-roll PROPFIND/GET/PUT/MOVE/DELETE. Backlinks /
-      search / tags will need to be implemented client-side (walk the file
-      tree, fetch each .md, scan). For 100s of notes this is fine; for
-      1000s consider caching an index in localStorage.
+      search / tags / tasks / headings will need to be implemented
+      client-side (walk the file tree, fetch each `.md`, scan). For 100s of
+      notes this is fine; for 1000s consider caching an index in
+      localStorage / IndexedDB and invalidating per-file on save.
 - [ ] Decide how to do **authentication**. Easiest: prompt user for
       Nextcloud URL + username + app-password on first launch, store in
       localStorage (or use the browser's HTTP Basic Auth dialog). Nextcloud
@@ -66,6 +68,52 @@ Hetzner VPS and have it talk directly to a Nextcloud instance.
   the editor block is inserted.
 - Soft delete: re-implement as a `.trash/` move via WebDAV `MOVE`. Restore
   works the same.
+
+### MCP server during/after Hetzner migration
+
+The MCP server currently runs locally on the user's Mac and reads the
+notes folder via direct filesystem access (`NOTES_ROOT` env var). When the
+notes move to Nextcloud-on-Hetzner, **the MCP server config in Claude
+Desktop must be updated**.
+
+Two viable patterns:
+
+**(a) Keep MCP server local, point at Nextcloud-synced folder.** Recommended.
+The user already runs Nextcloud Desktop client locally for sync, which
+mirrors the remote `Notes/` folder to a local path (e.g.
+`~/Nextcloud/Notes/`). Update the Claude Desktop config to:
+
+```json
+{
+  "mcpServers": {
+    "notes": {
+      "command": "node",
+      "args": [
+        "/Users/renejesser/Desktop/Programming - Projekte/notes-app/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "NOTES_ROOT": "/Users/renejesser/Nextcloud/Notes"
+      }
+    }
+  }
+}
+```
+
+Adjust both the `args` path (if the repo moves) and the `NOTES_ROOT`
+(swap the local `notes-app/notes` for the Nextcloud-synced location).
+No code changes needed — the MCP server is filesystem-agnostic.
+
+**(b) Run the MCP server on Hetzner with WebDAV access.** Not recommended
+for v1: MCP stdio transport doesn't trivially go over a network, and
+Claude Desktop's `command` runs locally. You'd need to either:
+- Add a tunnel (ssh -L) so Claude Desktop spawns a local process that
+  pipes to a remote one, or
+- Switch to MCP HTTP/SSE transport (newer in the SDK) and host the server
+  on Hetzner behind auth.
+The local + Nextcloud-synced approach (a) is simpler and just as fast.
+
+In either case, also bump `NOTES_ROOT` references in any scripts / docs
+that hardcode the path.
 
 ## 2. Service Worker — offline editing of recently-opened notes
 
@@ -99,7 +147,7 @@ Two options:
 
 Recommendation: Shiki via the [`@blocknote/code-block`](https://www.npmjs.com/package/@blocknote/code-block)
 plugin if it exists for 0.50, otherwise skip until the user actually
-pastes code into a note.
+pastes code into a note. User has indicated this is not a priority.
 
 ## 4. Note templates
 
@@ -113,33 +161,11 @@ When creating a new note via "+ Notiz", optionally seed it from a template.
 - [ ] Bonus: `{{date}}`, `{{title}}` placeholder substitution at create
       time.
 
-## 5. Export single note as PDF / HTML
+User has indicated this is not a priority.
 
-Browser-native `window.print()` works fine for "print to PDF" today, but
-the print stylesheet needs tuning — currently the sidebar prints too.
-
-- [ ] Add `@media print` rules to hide sidebar, save indicator, backlinks
-      panel; reset editor column to full width with serif/clean fonts.
-- [ ] A "Export" item in the row action menu that triggers `window.print()`
-      with a small print-specific class on `<html>`.
-
-## 6. Drag-drop to reorder folder tree
-
-Currently you can rename a note's path to move it; there's no drag-drop.
-
-- [ ] Add HTML5 drag-drop to `TreeView` rows. On drop, fire a
-      `/api/rename` with the new path.
-- [ ] Visual feedback: highlight the drop target folder, show a drop-line
-      between siblings for re-ordering.
-- [ ] Consider whether files even have a meaningful order in our sort-by-
-      whatever model — probably not, so just folder membership matters.
-
-## 7. Smaller polish items
+## 5. Smaller polish items
 
 - [ ] Better empty-state when no notes exist (currently fairly bare)
-- [ ] Confirm-dialog on `Cmd+Shift+D` if the daily note already has
-      content and user double-presses (?), or just skip — current behavior
-      is fine
 - [ ] Tag-rename: clicking on a tag in the tag panel could offer "rename
       this tag globally" → find/replace `#oldtag` across all `.md` files
 - [ ] Image resize handle (similar trade-off to the PDF size buttons —
@@ -148,8 +174,30 @@ Currently you can rename a note's path to move it; there's no drag-drop.
       letting the user edit raw YAML if they want
 - [ ] Manual dark-mode toggle (currently follows system preference)
 - [ ] Keyboard shortcut help dialog (`?` key)
+- [ ] MCP: expose `delete_note` / `trash_note` (currently read+write only,
+      no delete — intentional safety, but Claude might benefit from it)
+- [ ] MCP: expose `list_pinned_notes` and `set_pinned(path, true|false)`
+- [ ] MCP: expose `list_recent_notes(limit)` mirroring the palette's
+      recent-list (would need to persist recent state to disk or have MCP
+      derive it from `modified` mtime)
 
-## 8. Things we deliberately DON'T plan
+## 6. Done — moved out of the roadmap
+
+These were on previous roadmaps and are now implemented:
+
+- ✅ Drag-drop folder tree reorder — implemented as **Move-via-modal**
+  instead (HTML5 drag-drop kept conflicting with text-selection; modal is
+  more reliable on touch)
+- ✅ Export single note as PDF (browser print) and standalone HTML
+- ✅ Word count + reading-time estimate
+- ✅ Outline panel for the current note
+- ✅ Pinned notes (sidebar section + `pinned: true` frontmatter)
+- ✅ Task aggregator (sidebar + `/aufgabe` slash command for inserting
+  a check-list block)
+- ✅ Internal heading anchors (`[[Note#Heading]]`)
+- ✅ MCP server for Claude Desktop integration
+
+## 7. Things we deliberately DON'T plan
 
 - Multi-user / collaboration — single-user is a feature, keeps things
   simple
@@ -166,11 +214,16 @@ If picking up this project in a new conversation:
    architecture, conventions, and known footguns.
 2. The biggest land-mines: schema changes need full page reload, slash-menu
    `title === group` causes duplicate-key warnings, PDF size encodes in URL
-   query and the GC must strip it.
+   query and the GC must strip it, PDF blocks need `flex-shrink: 0` to
+   honor explicit widths inside BlockNote's flex wrappers.
 3. Custom blocks / inline content go through the schema export in
    `web/src/pdfBlock.tsx` — that file aggregates all of them even though
    its name suggests PDF-only.
-4. The user prefers concise, action-oriented responses in German. Build
+4. The MCP server is in `mcp-server/`. It's independent of the web app;
+   both share `notes/` as source of truth. When Hetzner deployment lands,
+   update `NOTES_ROOT` in Claude Desktop's config to the Nextcloud-synced
+   local path (and `args` if the repo moves).
+5. The user prefers concise, action-oriented responses in German. Build
    working features over discussing alternatives. They're a senior dev
    doing music mixing professionally — comfortable with technical detail
    but values pragmatism over architecture astronautics.

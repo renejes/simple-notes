@@ -127,6 +127,56 @@
   border-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Pinned notes section — above the regular tree */
+.pinned-panel {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.pinned-header {
+  padding: 0 8px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #999;
+}
+.pinned-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pinned-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #444;
+  font-size: 13px;
+  transition: background 0.12s, color 0.12s;
+}
+.pinned-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+.pinned-item.active {
+  background: rgba(0, 0, 0, 0.07);
+  color: #111;
+  font-weight: 500;
+}
+.pinned-icon {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.pinned-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .tree {
   list-style: none;
   padding: 0;
@@ -147,6 +197,101 @@
 }
 .tree-row:hover {
   background: rgba(0, 0, 0, 0.04);
+}
+
+/* Move modal — folder picker for the "Verschieben…" action */
+.move-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 12, 0.25);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+.move-modal {
+  width: min(520px, calc(100vw - 32px));
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(20, 18, 12, 0.08),
+    0 20px 60px rgba(20, 18, 12, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.move-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  gap: 12px;
+}
+.move-title {
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.move-title code {
+  font-family: inherit;
+  color: #111;
+}
+.move-cancel {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.move-cancel:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+.move-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.move-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: #222;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.move-option:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.move-option--root {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 4px;
+  border-radius: 0;
+  padding-bottom: 12px;
+  color: #555;
+}
+.move-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
 }
 
 .tree-dir-label,
@@ -296,6 +441,128 @@
 .note-meta-date {
   font-variant-numeric: tabular-nums;
 }
+.note-meta-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.note-meta-btn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: transparent;
+  border-radius: 4px;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.note-meta-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+.note-meta-btn.active {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #111;
+}
+
+/* Outline — inline collapsible heading list above the editor */
+.outline {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.025);
+  border-radius: 8px;
+  border-left: 3px solid rgba(0, 0, 0, 0.1);
+}
+.outline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.outline li {
+  margin: 0;
+}
+.outline-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.outline-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #111;
+}
+.outline-item[data-level="1"] {
+  font-weight: 600;
+  color: #222;
+}
+.outline-item[data-level="2"] {
+  font-weight: 500;
+}
+
+/* Print: hide everything except the editor content */
+@media print {
+  .sidebar,
+  .sidebar-backdrop,
+  .hamburger-btn,
+  .save-indicator,
+  .note-meta,
+  .backlinks,
+  .pdf-embed__actions,
+  .hw-block__edit,
+  .row-more,
+  .row-menu {
+    display: none !important;
+  }
+  body,
+  .app-shell,
+  .main-area,
+  .editor-column {
+    background: #fff !important;
+    color: #000 !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: block !important;
+  }
+  .editor-column {
+    max-width: 760px !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
+  }
+  /* Avoid awkward page breaks inside blocks */
+  .bn-block,
+  .pdf-embed,
+  .hw-block,
+  pre,
+  blockquote {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* PDFs in iframe don't print well — replace with a note */
+  .pdf-embed__frame {
+    display: none !important;
+  }
+  .pdf-embed::after {
+    content: "[PDF eingebettet — separat öffnen]";
+    display: block;
+    padding: 24px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+  }
+}
 
 /* Tag panel in sidebar */
 .tag-panel {
@@ -387,6 +654,144 @@
 .sidebar-footer-btn:hover {
   background: rgba(0, 0, 0, 0.05);
   color: #111;
+}
+
+/* Tasks modal — open `- [ ]` aggregator */
+.tasks-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 12, 0.25);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+.tasks-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: 75vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(20, 18, 12, 0.08),
+    0 20px 60px rgba(20, 18, 12, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.tasks-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+.tasks-count {
+  color: #aaa;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.tasks-close {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+}
+.tasks-close:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.tasks-empty {
+  padding: 40px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+.tasks-empty code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+}
+.tasks-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.tasks-group {
+  margin: 8px 0;
+}
+.tasks-group-header {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #666;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+}
+.tasks-group-header:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #111;
+}
+.tasks-group-path {
+  font-weight: 500;
+  font-size: 10px;
+  color: #aaa;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tasks-group-list {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+.tasks-item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 12px 6px 24px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+}
+.tasks-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.tasks-checkbox {
+  flex-shrink: 0;
+  color: #999;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.tasks-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Trash modal */

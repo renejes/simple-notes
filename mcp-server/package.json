@@ -1,0 +1,25 @@
+{
+  "name": "simple-notes-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing the simple-notes vault to Claude Desktop and other MCP-compatible clients.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "simple-notes-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}
